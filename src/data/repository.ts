@@ -1,16 +1,18 @@
 import { db } from './database';
 import { supabase, domainError } from './client';
 import { applyOperation, project } from '../domain/operations';
-import { DomainError, SCHEMA_VERSION, type DayLabel, type Label, type Operation, type OperationType, type Payload, type Preferences, type Snapshot } from '../domain/types';
-type MutationResult = { schema_version: number; revision: string; requires_snapshot: boolean; labels: Label[]; day_labels: DayLabel[]; deleted_label_ids: string[]; deleted_day_ids: string[]; preferences?: Preferences };
+import { DomainError, LEGACY_CALENDAR_ID, SCHEMA_VERSION, type CalendarDefinition, type DayLabel, type Label, type Operation, type OperationType, type Payload, type Preferences, type Snapshot } from '../domain/types';
+import { normalizeSnapshot } from '../domain/calendars';
+type MutationResult = { schema_version: number; revision: string; requires_snapshot: boolean; calendars: CalendarDefinition[]; labels: Label[]; day_labels: DayLabel[]; deleted_label_ids: string[]; deleted_day_ids: string[]; preferences?: Preferences };
 export function mergeResult(snapshot: Snapshot, result: MutationResult): Snapshot {
   if (BigInt(snapshot.revision) >= BigInt(result.revision)) return snapshot;
   const labels = new Map(snapshot.labels.map(l => [l.id, l])), days = new Map(snapshot.day_labels.map(d => [d.id, d]));
+  const calendars = new Map(snapshot.calendars.map(c => [c.id, c])); result.calendars?.forEach(c => calendars.set(c.id, c));
   result.deleted_label_ids.forEach(id => labels.delete(id)); result.deleted_day_ids.forEach(id => days.delete(id));
   result.labels.forEach(l => labels.set(l.id, l)); result.day_labels.forEach(d => days.set(d.id, d));
-  return { ...snapshot, revision: result.revision, labels: [...labels.values()], day_labels: [...days.values()], preferences: result.preferences || snapshot.preferences };
+  return { ...snapshot, revision: result.revision, calendars: [...calendars.values()], labels: [...labels.values()], day_labels: [...days.values()], preferences: result.preferences || snapshot.preferences };
 }
-export type RepositoryView = { confirmed?: Snapshot; snapshot?: Snapshot; queue: Operation[]; failures: Map<string, string>; error?: string; syncing: boolean; online: boolean };
+export type RepositoryView = { confirmed?: Snapshot; snapshot?: Snapshot; selected_calendar_id?: string; queue: Operation[]; failures: Map<string, string>; error?: string; syncing: boolean; online: boolean };
 export const emptyView = (): RepositoryView => ({ queue: [], failures: new Map(), syncing: false, online: navigator.onLine });
 export class Repository {
   readonly owner = crypto.randomUUID();
@@ -28,10 +30,18 @@ export class Repository {
   getSnapshot = () => this.view;
   private notify(view: Partial<RepositoryView> = {}) { if (this.disposed) return; this.view = { ...this.view, ...view }; this.listeners.forEach(l => l()); }
   async reload(): Promise<void> {
-    const [stored, queue] = await Promise.all([db.snapshots.get(this.userId), db.operations.where('user_id').equals(this.userId).sortBy('sequence')]);
+    const [stored, queue, selected] = await Promise.all([db.snapshots.get(this.userId), db.operations.where('user_id').equals(this.userId).sortBy('sequence'), db.selections.get(this.userId)]);
     if (this.disposed) return;
-    const projected = stored ? project(stored.snapshot, queue) : undefined;
-    this.notify({ confirmed: stored?.snapshot, snapshot: projected?.snapshot, queue, failures: projected?.failures || new Map(), online: navigator.onLine });
+    const confirmed = stored ? normalizeSnapshot(stored.snapshot) : undefined;
+    const projected = confirmed ? project(confirmed, queue) : undefined;
+    const calendars = projected?.snapshot.calendars || [];
+    const wanted = this.view.selected_calendar_id || selected?.calendar_id;
+    const selectedId = calendars.some(c => c.id === wanted) ? wanted : calendars.find(c => c.is_default)?.id || calendars[0]?.id;
+    this.notify({ confirmed, snapshot: projected?.snapshot, selected_calendar_id: selectedId, queue, failures: projected?.failures || new Map(), online: navigator.onLine });
+  }
+  async selectCalendar(id: string) {
+    if (!this.view.snapshot?.calendars.some(c => c.id === id)) throw new DomainError('CALENDAR_NOT_FOUND', 'Kalendarz już nie istnieje.');
+    await db.selections.put({ user_id: this.userId, calendar_id: id }); this.notify({ selected_calendar_id: id }); await this.reload();
   }
   private broadcast() { this.channel?.postMessage({ user_id: this.userId }); }
   async start() {
@@ -51,7 +61,9 @@ export class Repository {
       const stored = await db.snapshots.get(this.userId);
       if (!stored) throw new Error('Najpierw pobierz historię przez internet.');
       const queue = await db.operations.where('user_id').equals(this.userId).sortBy('sequence');
-      const state = project(stored.snapshot, queue);
+      if (queue.some(pending => pending.type === 'replace_from_backup')) throw new Error('Poczekaj na potwierdzenie importu lub rozwiąż jego konflikt przed kolejną zmianą.');
+      if (stored.snapshot.schema_version === 1 && !queue.length) op.expected_revision = stored.snapshot.revision;
+      const state = project(normalizeSnapshot(stored.snapshot), queue);
       applyOperation(state.snapshot, op); // Validate before committing the local queue.
       if (type === 'delete_label' || type === 'replace_from_backup') {
         if (!navigator.onLine || queue.length) throw new Error('Ta czynność wymaga internetu i pustej kolejki synchronizacji.');
@@ -62,7 +74,7 @@ export class Repository {
   }
   async refreshOnline(): Promise<Snapshot> {
     if (!navigator.onLine || this.view.queue.length || this.inFlight) throw new Error('Najpierw zsynchronizuj oczekujące zmiany.');
-    const { data, error } = await supabase.rpc('get_calendar_snapshot');
+    const { data, error } = await supabase.rpc('get_calendars_snapshot');
     if (error) throw domainError(error);
     this.checkVersion(data);
     await db.snapshots.put({ user_id: this.userId, snapshot: data }); await this.reload(); this.broadcast(); return data;
@@ -97,6 +109,7 @@ export class Repository {
       const { data: auth } = await supabase.auth.getSession();
       if (!auth.session || auth.session.user.id !== this.userId) throw new DomainError('AUTH_REQUIRED', 'Sesja wygasła. Zaloguj się ponownie na to samo konto.');
       if (this.view.confirmed) {
+        if (this.view.confirmed.calendars.some(c => c.id === LEGACY_CALENDAR_ID)) { await this.download(); await this.reload(); }
         const { data, error } = await supabase.rpc('get_calendar_revision');
         if (error) throw domainError(error);
         if (data !== this.view.confirmed.revision && this.view.queue.length) {
@@ -107,8 +120,8 @@ export class Repository {
       await this.reload();
       while (!this.disposed) {
         const op = this.view.queue[0]; if (!op || op.state === 'conflict') break;
-        if (this.view.failures.has(op.id)) { await db.operations.update(op.sequence!, { state: 'conflict', error: this.view.failures.get(op.id) }); break; }
-        const { data, error } = await supabase.rpc('apply_calendar_operation', { operation_id: op.id, expected_revision: this.view.confirmed!.revision, operation_type: op.type, payload: op.payload, client_schema_version: SCHEMA_VERSION });
+        // Server idempotency must run even when a stale local projection cannot apply the operation.
+        const { data, error } = await supabase.rpc('apply_calendars_operation', { operation_id: op.id, expected_revision: op.expected_revision ?? this.view.confirmed!.revision, operation_type: op.type, payload: op.payload, client_schema_version: SCHEMA_VERSION });
         if (error) {
           const issue = domainError(error);
           if (issue.code === 'REVISION_CONFLICT') await this.download();
@@ -118,13 +131,17 @@ export class Repository {
         if (data.schema_version !== SCHEMA_VERSION) throw new DomainError('VALIDATION_ERROR', 'Zaktualizuj aplikację. Kolejka zostanie zachowana.');
         let replacement: Snapshot | undefined;
         if (data.requires_snapshot) {
-          const response = await supabase.rpc('get_calendar_snapshot'); if (response.error) throw domainError(response.error);
+          const response = await supabase.rpc('get_calendars_snapshot'); if (response.error) throw domainError(response.error);
           this.checkVersion(response.data); replacement = response.data;
         }
         await db.transaction('rw', db.snapshots, db.operations, async () => {
           const stored = await db.snapshots.get(this.userId); if (!stored) throw new Error('Brak potwierdzonego stanu.');
-          await db.snapshots.put({ user_id: this.userId, snapshot: replacement || mergeResult(stored.snapshot, data) });
+          await db.snapshots.put({ user_id: this.userId, snapshot: replacement || mergeResult(normalizeSnapshot(stored.snapshot), data) });
           await db.operations.delete(op.sequence!);
+          if (replacement && replacement.revision !== data.revision) {
+            const next = (await db.operations.where('user_id').equals(this.userId).sortBy('sequence'))[0];
+            if (next && next.expected_revision === undefined) await db.operations.update(next.sequence!, { expected_revision: data.revision });
+          }
         });
         this.retry = 0; await this.reload(); this.broadcast();
       }
@@ -142,7 +159,7 @@ export class Repository {
     }
   }
   private async download() {
-    const { data, error } = await supabase.rpc('get_calendar_snapshot'); if (error) throw domainError(error);
+    const { data, error } = await supabase.rpc('get_calendars_snapshot'); if (error) throw domainError(error);
     this.checkVersion(data); await db.snapshots.put({ user_id: this.userId, snapshot: data });
   }
   async resolve(id: string, keep: boolean) {
@@ -151,18 +168,18 @@ export class Repository {
       const op = await db.operations.where('id').equals(id).first(); if (!op || op.user_id !== this.userId) return;
       if (keep) {
         const stored = await db.snapshots.get(this.userId); if (!stored) throw new Error('Brak pobranej historii.');
-        applyOperation(stored.snapshot, op);
-        await db.operations.update(op.sequence!, { id: crypto.randomUUID(), state: 'pending', error: undefined });
+        applyOperation(normalizeSnapshot(stored.snapshot), op);
+        await db.operations.update(op.sequence!, { id: crypto.randomUUID(), expected_revision: undefined, state: 'pending', error: undefined });
       } else await db.operations.delete(op.sequence!);
     });
     await this.reload(); this.broadcast(); void this.sync();
   }
   async logout(discard = false) {
     if (this.inFlight) throw new Error('Poczekaj na zakończenie synchronizacji.');
-    await db.transaction('rw', db.snapshots, db.operations, db.leases, async () => {
+    await db.transaction('rw', db.snapshots, db.operations, db.leases, db.selections, async () => {
       const queued = await db.operations.where('user_id').equals(this.userId).count();
       if (queued && !discard) throw new Error('Najpierw zsynchronizuj oczekujące zmiany.');
-      await db.snapshots.delete(this.userId); await db.operations.where('user_id').equals(this.userId).delete(); await db.leases.delete(this.userId);
+      await db.snapshots.delete(this.userId); await db.operations.where('user_id').equals(this.userId).delete(); await db.leases.delete(this.userId); await db.selections.delete(this.userId);
     });
     this.dispose();
     await supabase.auth.signOut({ scope: 'local' });

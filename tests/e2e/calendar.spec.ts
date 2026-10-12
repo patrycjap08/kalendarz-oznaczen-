@@ -2,14 +2,16 @@ import { expect, test, type Page } from '@playwright/test';
 import { applyOperation } from '../../src/domain/operations';
 import { DEFAULT_PREFERENCES, type Snapshot } from '../../src/domain/types';
 const userId = '00000000-0000-4000-8000-000000000001';
+const mainCalendarId = '30000000-0000-4000-8000-000000000001';
 async function mockAccount(page: Page, entries = 9) {
   await page.clock.setFixedTime(new Date('2026-10-12T12:00:00Z'));
   const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: 'test@example.com', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-10-12T00:00:00Z' };
   const token = `${Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated' })).toString('base64url')}.test-signature`;
   const session = { access_token: token, refresh_token: 'test-refresh-token', expires_in: 3600, token_type: 'bearer', user };
-  let snapshot: Snapshot = { schema_version: 1, revision: '0', profile: { username: 'testkonto' }, preferences: DEFAULT_PREFERENCES,
-    labels: Array.from({ length: entries }, (_, i) => ({ id: `10000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, name: `Oznaczenie ${i + 1}`, emoji: '🌿', color_hex: ['#8AAE92', '#DDAE83', '#8BA7CC'][i % 3], kind: 'reusable', status: 'active', created_at: '2026-10-12T00:00:00Z', updated_at: '2026-10-12T00:00:00Z' })),
-    day_labels: Array.from({ length: entries }, (_, i) => ({ id: `20000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, label_id: `10000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, day: '2026-10-12', created_at: '2026-10-12T00:00:00Z' })),
+  let snapshot: Snapshot = { schema_version: 2, revision: '0', profile: { username: 'testkonto' }, preferences: DEFAULT_PREFERENCES,
+    calendars: [{ id: mainCalendarId, name: 'Mój kalendarz', is_default: true, created_at: '2026-10-12T00:00:00Z', updated_at: '2026-10-12T00:00:00Z' }],
+    labels: Array.from({ length: entries }, (_, i) => ({ id: `10000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, calendar_id: mainCalendarId, name: `Oznaczenie ${i + 1}`, emoji: '🌿', color_hex: ['#8AAE92', '#DDAE83', '#8BA7CC'][i % 3], kind: 'reusable', status: 'active', created_at: '2026-10-12T00:00:00Z', updated_at: '2026-10-12T00:00:00Z' })),
+    day_labels: Array.from({ length: entries }, (_, i) => ({ id: `20000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, calendar_id: mainCalendarId, label_id: `10000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, day: '2026-10-12', created_at: '2026-10-12T00:00:00Z' })),
   };
   await page.route('https://pmdkppkgnihscupgthxh.supabase.co/**', async route => {
     const url = route.request().url(), path = new URL(url).pathname;
@@ -19,15 +21,15 @@ async function mockAccount(page: Page, entries = 9) {
     if (path.includes('/auth/v1/user')) return respond(user);
     if (path.includes('/auth/v1/token')) return respond(session);
     if (path.includes('/auth/v1/logout')) return respond({});
-    if (path.endsWith('/rpc/get_calendar_snapshot')) return respond(snapshot);
+    if (path.endsWith('/rpc/get_calendars_snapshot')) return respond(snapshot);
     if (path.endsWith('/rpc/get_calendar_revision')) return respond(snapshot.revision);
-    if (path.endsWith('/rpc/apply_calendar_operation')) {
+    if (path.endsWith('/rpc/apply_calendars_operation')) {
       const body = route.request().postDataJSON();
       if (body.expected_revision !== snapshot.revision) return respond({ message: 'REVISION_CONFLICT' }, 400);
       const before = snapshot;
       snapshot = applyOperation(snapshot, { id: body.operation_id, user_id: userId, type: body.operation_type, payload: body.payload, state: 'pending', created_at: new Date().toISOString() });
       snapshot.revision = String(BigInt(before.revision) + 1n);
-      return respond({ operation_id: body.operation_id, schema_version: 1, revision: snapshot.revision, labels: snapshot.labels, day_labels: snapshot.day_labels, deleted_label_ids: before.labels.filter(l => !snapshot.labels.some(n => n.id === l.id)).map(l => l.id), deleted_day_ids: before.day_labels.filter(d => !snapshot.day_labels.some(n => n.id === d.id)).map(d => d.id), preferences: snapshot.preferences });
+      return respond({ operation_id: body.operation_id, schema_version: 2, revision: snapshot.revision, calendars: snapshot.calendars, labels: snapshot.labels, day_labels: snapshot.day_labels, deleted_label_ids: before.labels.filter(l => !snapshot.labels.some(n => n.id === l.id)).map(l => l.id), deleted_day_ids: before.day_labels.filter(d => !snapshot.day_labels.some(n => n.id === d.id)).map(d => d.id), preferences: snapshot.preferences });
     }
     return respond({ message: 'Unhandled mocked endpoint' }, 500);
   });
@@ -98,4 +100,37 @@ test('układ 320 px nie wychodzi poza ekran', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 }); await mockAccount(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const day = page.getByRole('button', { name: /12 października 2026,/ }); await expect(day.locator('.marker-dot')).toHaveCount(6);
+});
+test('przełączanie kalendarzy rozdziela oznaczenia i wpisy, zachowując wybrany miesiąc', async ({ page }) => {
+  await mockAccount(page);
+  await page.getByRole('button', { name: 'Nowy kalendarz', exact: true }).click(); await page.getByLabel('Nazwa kalendarza', { exact: true }).fill('Praca'); await page.getByRole('button', { name: 'Utwórz kalendarz', exact: true }).click();
+  await expect(page.getByLabel('Wybierz kalendarz')).toHaveValue(/.+/); await expect(page.getByLabel('Wybierz kalendarz').locator('option:checked')).toHaveText('Praca');
+  const secondId = await page.getByLabel('Wybierz kalendarz').inputValue();
+  await page.getByRole('button', { name: /12 października 2026,/ }).click(); await expect(page.getByText('Ten dzień jest jeszcze pusty.')).toBeVisible();
+  await page.getByRole('button', { name: '＋ Nowe oznaczenie', exact: true }).click(); await page.getByLabel('Nazwa', { exact: true }).fill('Oznaczenie 1'); await page.getByLabel('Zapisz także na liście oznaczeń').check(); await page.getByRole('button', { name: 'Zapisz oznaczenie', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Usuń Oznaczenie 1 z dnia', exact: true })).toHaveCount(1); await page.getByRole('button', { name: 'Zamknij', exact: true }).click();
+  await page.getByRole('button', { name: 'Oznaczenia', exact: true }).click(); await expect(page.locator('.label-card')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Kalendarz', exact: true }).click(); await page.getByLabel('Wybierz kalendarz').selectOption(mainCalendarId);
+  await expect(page.getByRole('button', { name: /12 października 2026,/ }).locator('.marker-dot')).toHaveCount(6);
+  await page.getByRole('button', { name: 'Oznaczenia', exact: true }).click(); await expect(page.locator('.label-card')).toHaveCount(9);
+  await page.getByRole('button', { name: 'Kalendarz', exact: true }).click(); await page.getByRole('button', { name: 'Następny miesiąc', exact: true }).click(); await page.getByLabel('Wybierz kalendarz').selectOption(secondId);
+  await expect(page.getByRole('heading', { name: 'listopad 2026', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/multiple-calendars.png' });
+});
+test('nowy kalendarz i jego wpisy przetrwają ponowne otwarcie offline', async ({ page, context }) => {
+  await mockAccount(page, 0); await page.evaluate(async () => { await navigator.serviceWorker.ready; }); await context.setOffline(true);
+  await page.getByRole('button', { name: 'Nowy kalendarz', exact: true }).click(); await page.getByLabel('Nazwa kalendarza', { exact: true }).fill('Offline kalendarz'); await page.getByRole('button', { name: 'Utwórz kalendarz', exact: true }).click();
+  await page.getByRole('button', { name: /12 października 2026,/ }).click(); await page.getByRole('button', { name: '＋ Nowe oznaczenie', exact: true }).click(); await page.getByLabel('Nazwa', { exact: true }).fill('Offline wpis'); await page.getByRole('button', { name: 'Zapisz oznaczenie', exact: true }).click(); await expect(page.getByText('Offline wpis', { exact: true })).toBeVisible(); await expect(page.getByRole('dialog')).toHaveCount(1); await page.getByRole('button', { name: 'Zamknij', exact: true }).click();
+  await page.reload(); await expect(page.getByLabel('Wybierz kalendarz').locator('option:checked')).toHaveText('Offline kalendarz'); await expect(page.getByRole('button', { name: /12 października 2026,/ }).locator('.marker-dot')).toHaveCount(1);
+  await context.setOffline(false); await expect(page.locator('.sync-status')).toContainText('Zapisano · zsynchronizowano');
+});
+test('zmiana nazwy i eksport obejmują wszystkie kalendarze', async ({ page }) => {
+  const account = await mockAccount(page, 1);
+  await page.getByRole('button', { name: 'Zmień nazwę kalendarza', exact: true }).click(); await page.getByLabel('Nazwa kalendarza', { exact: true }).fill('Osobisty'); await page.getByRole('button', { name: 'Zapisz nazwę', exact: true }).click();
+  await expect(page.getByLabel('Wybierz kalendarz').locator('option:checked')).toHaveText('Osobisty');
+  await page.getByRole('button', { name: 'Nowy kalendarz', exact: true }).click(); await page.getByLabel('Nazwa kalendarza', { exact: true }).fill('Drugi'); await page.getByRole('button', { name: 'Utwórz kalendarz', exact: true }).click();
+  await expect(page.locator('.sync-status')).toContainText('Zapisano · zsynchronizowano'); await page.getByRole('button', { name: 'Ustawienia', exact: true }).click();
+  const downloaded = page.waitForEvent('download'); await page.getByRole('button', { name: 'Eksportuj wszystkie kalendarze', exact: true }).click(); const download = await downloaded;
+  const stream = await download.createReadStream(); const chunks: Buffer[] = []; for await (const chunk of stream!) chunks.push(Buffer.from(chunk)); const backup = JSON.parse(Buffer.concat(chunks).toString());
+  expect(backup.schema_version).toBe(2); expect(backup.calendars.map((c: { name: string }) => c.name)).toEqual(['Osobisty', 'Drugi']); expect(backup.labels[0].calendar_id).toBe(mainCalendarId); expect(account.snapshot().day_labels).toHaveLength(1);
 });

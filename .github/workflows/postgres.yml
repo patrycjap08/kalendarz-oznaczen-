@@ -21,7 +21,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/sql/bootstrap.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202610120001_schema.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202610120002_emoji.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202610120003_multiple_calendars.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/acceptance.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/multiple_calendars.sql
           bash scripts/test-concurrency.sh
         env:
           PGHOST: localhost

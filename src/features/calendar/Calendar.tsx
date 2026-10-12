@@ -4,8 +4,9 @@ import { DayCell } from '../../components/markers/DayCell';
 import { dateString, monthDays } from '../../domain/dates';
 import { indexDays } from '../../domain/operations';
 import { DayPanel } from './DayPanel';
+import { CalendarSelector } from './CalendarSelector';
 export function Calendar({ month, setMonth }: { month: [number, number]; setMonth: (month: [number, number]) => void }) {
-  const { view } = useApp(); const [year, m] = month;
+  const { calendarView: view } = useApp(); const [year, m] = month;
   const [selected, setSelected] = useState<string>(), [today, setToday] = useState(() => dateString(new Date()));
   const gridRef = useRef<HTMLDivElement>(null), [availableHeight, setAvailableHeight] = useState<number>();
   const hasSnapshot = Boolean(view.snapshot);
@@ -25,6 +26,7 @@ export function Calendar({ month, setMonth }: { month: [number, number]; setMont
   const title = new Intl.DateTimeFormat('pl-PL', { month: 'long', year: 'numeric' }).format(new Date(year, m, 1));
   const fields = monthDays(year, m);
   return <section className="calendar-screen">
+    {view.snapshot && <CalendarSelector />}
     <header className="month-header"><h1>{title}</h1><button className="today-button" onClick={() => { const now = new Date(); setMonth([now.getFullYear(), now.getMonth()]); }}>Dzisiaj</button></header>
     <div className="month-controls" style={{ justifyContent: 'flex-end' }}><div><button className="icon-button" aria-label="Poprzedni miesiąc" disabled={year === 1900 && m === 0} onClick={() => move(-1)}>‹</button><button className="icon-button" aria-label="Następny miesiąc" disabled={year === 2100 && m === 11} onClick={() => move(1)}>›</button></div></div>
     {!view.snapshot ? <div className="empty-state"><span className="empty-icon">▦</span><h2>{view.online ? 'Pobieranie kalendarza' : 'Historia nie jest jeszcze dostępna offline'}</h2><p>{view.error || 'Pierwsze pobranie historii wymaga internetu.'}</p><button onClick={() => void view}>Status połączenia jest widoczny u góry</button></div> : <>

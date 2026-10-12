@@ -98,4 +98,10 @@ Odpowiednik lokalny: zainstaluj CLI Supabase 2.120.0, wykonaj `supabase login`, 
 
 ### Ochrona środowiska wdrożeniowego
 
-W środowisku `supabase-production` włącz wymagane zatwierdzenie wdrożenia, jeśli pozwala na to plan. Ogranicz wdrożenia do `main`. Workflow Supabase jest uruchamiany wyłącznie ręcznie i nie wdraża produkcyjnych migracji z PR.
+W środowisku `supabase-production` włącz wymagane zatwierdzenie wdrożenia, jeśli pozwala na to plan. Ogranicz wdrożenia do `main`. Workflow Supabase może być uruchomiony ręcznie albo automatycznie przez publikację Pages, gdy zmiana na main obejmuje migracje. Automatyczne wdrożenie następuje po testach i przed frontendem. PR nie uruchamia produkcyjnych migracji.
+
+## Aktualizacja do wielu kalendarzy
+
+Migracja 003 zachowuje dotychczasowe wpisy i oznaczenia w pierwszym kalendarzu „Mój kalendarz”. Po aktualizacji wybierzesz kalendarz u góry ekranu, dodasz nowy przyciskiem + i zmienisz nazwę przyciskiem ołówka. Każdy kalendarz ma własną listę oznaczeń i własne dni. Ustawienia wyglądu pozostają wspólne dla konta.
+
+Kopie JSON w wersji 2 obejmują wszystkie kalendarze. Import pokazuje ich liczbę i ostrzega, że zastąpi wszystkie kalendarze. Pliki wersji 1 nadal są obsługiwane. Starsza zainstalowana aplikacja widzi wyłącznie pierwszy kalendarz do czasu aktualizacji. Kolejki offline są zachowywane.

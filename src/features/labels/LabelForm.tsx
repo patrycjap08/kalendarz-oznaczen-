@@ -5,7 +5,7 @@ import { Confirm, Dialog } from '../../components/Dialog';
 import { EMOJI_CHOICES, nameKey, validateLabel, validateName } from '../../domain/validation';
 import type { Label } from '../../domain/types';
 export function LabelForm({ label, day, onClose }: { label?: Label; day?: string; onClose: () => void }) {
-  const { mutate, view, toast, setDirty } = useApp();
+  const { mutate, calendarView: view, toast, setDirty } = useApp();
   const initial = { name: label?.name || '', emoji: label?.emoji || '🌿', color: label?.color_hex || '#8AAE92', reusable: label ? label.kind === 'reusable' : !day };
   const [form, setForm] = useState(initial), [error, setError] = useState(''), [busy, setBusy] = useState(false), [discard, setDiscard] = useState(false);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);

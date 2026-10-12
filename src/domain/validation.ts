@@ -1,5 +1,6 @@
 import emojiData from './emoji.json' with { type: 'json' };
-import { DEFAULT_PREFERENCES, DomainError, type Backup, type Label, type Preferences } from './types';
+import { DEFAULT_PREFERENCES, DomainError, LEGACY_CALENDAR_ID, SCHEMA_VERSION, type Backup, type Label, type Preferences } from './types';
+import { legacyCalendar } from './calendars';
 import { validDay } from './dates';
 const emojis = new Set<string>(emojiData);
 export const EMOJI_CHOICES = ['🌿', '🏋️', '📚', '💼', '❤️', '☀️', '🌙', '🎉', '🏃‍♀️', '🧘', '🍀', '✈️', '🏠', '💧', '🩺', '🫶', '👩🏽‍💻', '🐾', '🎨', '🎵', '🍵', '🚲', '🌸', '⭐'];
@@ -40,28 +41,37 @@ export function validatePreferences(value: unknown): Preferences {
 export const isUUID = (value: unknown): value is string => typeof value === 'string' && /^[\da-f]{8}-[\da-f]{4}-[1-8][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(value);
 export function validateBackup(value: unknown): Backup {
   if (!value || typeof value !== 'object') fail('Plik nie jest kopią kalendarza.');
-  const b = value as Backup;
-  if (b.schema_version !== 1 || !Array.isArray(b.labels) || !Array.isArray(b.day_labels)) fail('Nieobsługiwana wersja lub uszkodzona kopia.');
+  let b = value as Backup;
+  if (![1, SCHEMA_VERSION].includes(b.schema_version) || !Array.isArray(b.labels) || !Array.isArray(b.day_labels)) fail('Nieobsługiwana wersja lub uszkodzona kopia.');
+  if (b.schema_version === 1) b = { ...b, schema_version: SCHEMA_VERSION, calendars: [legacyCalendar()], labels: b.labels.map(l => ({ ...l, calendar_id: LEGACY_CALENDAR_ID })), day_labels: b.day_labels.map(d => ({ ...d, calendar_id: LEGACY_CALENDAR_ID })) };
+  if (!Array.isArray(b.calendars) || !b.calendars.length || b.calendars.filter(c => c?.is_default === true).length !== 1) fail('Kopia musi zawierać kalendarze i dokładnie jeden kalendarz domyślny.');
+  const calendarIds = new Set<string>(), calendarNames = new Set<string>();
+  for (const calendar of b.calendars) {
+    if (!calendar || !isUUID(calendar.id) || calendarIds.has(calendar.id) || typeof calendar.is_default !== 'boolean') fail('Niepoprawny lub powtórzony kalendarz.');
+    const key = nameKey(validateName(calendar.name)); if (calendarNames.has(key)) fail('Powtórzone nazwy kalendarzy.');
+    calendarIds.add(calendar.id); calendarNames.add(key);
+  }
   validatePreferences(b.preferences);
   const ids = new Set<string>(), names = new Set<string>(), pairs = new Set<string>(), entryIds = new Set<string>(), usages = new Map<string, number>();
   for (const label of b.labels) {
-    if (!label || !isUUID(label.id) || ids.has(label.id)) fail('Niepoprawny lub powtórzony identyfikator oznaczenia.');
+    if (!label || !isUUID(label.id) || ids.has(label.id) || !calendarIds.has(label.calendar_id)) fail('Niepoprawny identyfikator lub kalendarz oznaczenia.');
     validateLabel(label);
     if (!['reusable', 'one_off'].includes(label.kind) || !['active', 'archived'].includes(label.status) || (label.kind === 'one_off' && label.status !== 'active')) fail('Niepoprawny rodzaj oznaczenia.');
     if (label.kind === 'reusable') {
-      const key = nameKey(label.name); if (names.has(key)) fail('Powtórzone nazwy oznaczeń.'); names.add(key);
+      const key = `${label.calendar_id}/${nameKey(label.name)}`; if (names.has(key)) fail('Powtórzone nazwy oznaczeń w kalendarzu.'); names.add(key);
     }
     ids.add(label.id);
   }
   for (const d of b.day_labels) {
-    if (!d || !isUUID(d.id) || entryIds.has(d.id) || !ids.has(d.label_id) || typeof d.day !== 'string' || !validDay(d.day) || !Number.isFinite(Date.parse(d.created_at))) fail('Niepoprawne przypisanie do dnia.');
-    const pair = `${d.day}/${d.label_id}`; if (pairs.has(pair)) fail('Powtórzone oznaczenie w dniu.');
+    if (!d || !isUUID(d.id) || entryIds.has(d.id) || !ids.has(d.label_id) || !calendarIds.has(d.calendar_id) || b.labels.find(l => l.id === d.label_id)?.calendar_id !== d.calendar_id || typeof d.day !== 'string' || !validDay(d.day) || !Number.isFinite(Date.parse(d.created_at))) fail('Niepoprawne przypisanie do dnia lub kalendarza.');
+    const pair = `${d.calendar_id}/${d.day}/${d.label_id}`; if (pairs.has(pair)) fail('Powtórzone oznaczenie w dniu.');
     pairs.add(pair); entryIds.add(d.id); usages.set(d.label_id, (usages.get(d.label_id) || 0) + 1);
   }
   for (const l of b.labels) if (l.kind === 'one_off' && usages.get(l.id) !== 1) fail('Jednorazowe oznaczenie musi występować w dokładnie jednym dniu.');
   return b;
 }
 export function remapBackup(backup: Backup): Backup {
+  const calendars = new Map(backup.calendars.map(calendar => [calendar.id, crypto.randomUUID()]));
   const mapping = new Map(backup.labels.map(label => [label.id, crypto.randomUUID()]));
-  return { ...backup, labels: backup.labels.map(l => ({ ...l, id: mapping.get(l.id)! })), day_labels: backup.day_labels.map(d => ({ ...d, id: crypto.randomUUID(), label_id: mapping.get(d.label_id)! })) };
+  return { ...backup, calendars: backup.calendars.map(c => ({ ...c, id: calendars.get(c.id)! })), labels: backup.labels.map(l => ({ ...l, id: mapping.get(l.id)!, calendar_id: calendars.get(l.calendar_id)! })), day_labels: backup.day_labels.map(d => ({ ...d, id: crypto.randomUUID(), calendar_id: calendars.get(d.calendar_id)!, label_id: mapping.get(d.label_id)! })) };
 }

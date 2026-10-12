@@ -5,7 +5,7 @@ import { fullDate, searchKey } from '../../domain/dates';
 import { LabelForm } from '../labels/LabelForm';
 import type { Label } from '../../domain/types';
 export function DayPanel({ day, onClose }: { day: string; onClose: () => void }) {
-  const { view, mutate, toast } = useApp();
+  const { calendarView: view, mutate, toast } = useApp();
   const [query, setQuery] = useState(''), [edit, setEdit] = useState<Label | 'new'>(), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const snapshot = view.snapshot!;
   const assignments = snapshot.day_labels.filter(d => d.day === day).sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
@@ -24,7 +24,7 @@ export function DayPanel({ day, onClose }: { day: string; onClose: () => void })
     });
   });
   return <><Dialog title={fullDate(day)} onClose={onClose} className="day-dialog">
-    <p className="hint">{assignments.length} oznaczeń · tylko ten dzień</p>
+    <p className="hint">{assignments.length} oznaczeń · {snapshot.calendars.find(c => c.id === view.selected_calendar_id)?.name}</p>
     <h3>W tym dniu</h3>
     {!assignments.length && <p className="empty-inline">Ten dzień jest jeszcze pusty.</p>}
     <div className="label-list">{assignments.map(d => { const l = snapshot.labels.find(l => l.id === d.label_id); return l ? <div className="label-row" key={d.id}>

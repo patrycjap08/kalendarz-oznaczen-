@@ -12,8 +12,26 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    outputs:
+      migration_changed: ${{ steps.migrations.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check database migrations
+        id: migrations
+        env:
+          MIGRATION_BEFORE: ${{ github.event.before }}
+          MIGRATION_AFTER: ${{ github.sha }}
+          DEPLOY_EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$DEPLOY_EVENT" = workflow_dispatch ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$DEPLOY_EVENT" = push ] && ! git diff --quiet "$MIGRATION_BEFORE" "$MIGRATION_AFTER" -- supabase/migrations; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -37,9 +55,14 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           path: dist
-  deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  deploy_backend:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.verify.outputs.migration_changed == 'true'
     needs: verify
+    uses: ./.github/workflows/supabase.yml
+    secrets: inherit
+  deploy:
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.verify.result == 'success' && (needs.deploy_backend.result == 'success' || needs.deploy_backend.result == 'skipped')
+    needs: [verify, deploy_backend]
     runs-on: ubuntu-latest
     permissions:
       pages: write

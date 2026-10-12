@@ -5,7 +5,7 @@ import { searchKey } from '../../domain/dates';
 import type { Label } from '../../domain/types';
 import { LabelForm } from './LabelForm';
 export function Labels() {
-  const { view, mutate, repository, toast } = useApp();
+  const { calendarView: view, mutate, repository, toast } = useApp();
   const [archive, setArchive] = useState(false), [search, setSearch] = useState(''), [edit, setEdit] = useState<Label | 'new'>(), [remove, setRemove] = useState<{ label: Label; count: number }>(), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const usage = useMemo(() => { const map = new Map<string, number>(); for (const d of view.snapshot?.day_labels || []) map.set(d.label_id, (map.get(d.label_id) || 0) + 1); return map; }, [view.snapshot]);
   const labels = (view.snapshot?.labels || []).filter(l => l.kind === 'reusable' && l.status === (archive ? 'archived' : 'active') && searchKey(l.name).includes(searchKey(search))).sort((a, b) => a.name.localeCompare(b.name, 'pl'));

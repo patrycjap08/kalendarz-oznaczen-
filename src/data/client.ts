@@ -17,6 +17,7 @@ export const supabase = createClient(url || 'https://not-configured.supabase.co'
   } },
 });
 const messages: Record<DomainCode, string> = {
+  CALENDAR_NAME_CONFLICT: 'Kalendarz o tej nazwie już istnieje.', CALENDAR_NOT_FOUND: 'Kalendarz już nie istnieje lub nie należy do tego konta.',
   VALIDATION_ERROR: 'Sprawdź poprawność danych.', NAME_CONFLICT: 'Oznaczenie o tej nazwie już istnieje. Sprawdź także archiwum.',
   LABEL_NOT_FOUND: 'Oznaczenie już nie istnieje.', LABEL_ARCHIVED: 'Najpierw przywróć oznaczenie z archiwum.',
   REVISION_CONFLICT: 'Kalendarz zmienił się na innym urządzeniu.', AUTH_REQUIRED: 'Sesja wygasła. Zaloguj się ponownie na to samo konto.',

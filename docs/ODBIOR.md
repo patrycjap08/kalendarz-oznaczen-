@@ -27,3 +27,7 @@ Workflow CI uruchamia powyższe kontrole i dodatkowo test na PostgreSQL 17 z ró
 Nie deklarujemy zaliczenia testów wymagających niewdrożonych usług lub niedostępnego fizycznego urządzenia.
 
 Aktualizacja układu: liczba wierszy jest zgodna z liczbą tygodni zajmowanych przez miesiąc (potwierdzona zmiana specyfikacji). Dodano testy lutego rozpoczynającego się w poniedziałek, miesiąca pięciotygodniowego, sześciotygodniowego i rozmieszczenia kropek na wysokości daty.
+
+## Odbiór rozszerzenia: wiele kalendarzy
+
+Dodano testy migracji istniejącej historii i starej idempotencji, aktualizacji IndexedDB bez utraty kolejki, rozdzielenia oznaczeń i dat między kalendarzami, RLS między kontami oraz importu z mapowaniem kalendarzy. Testy przeglądarkowe obejmują tworzenie, przełączanie, zmianę nazwy, własne listy oznaczeń, eksport pełnego konta i ponowne otwarcie nowego kalendarza offline.
