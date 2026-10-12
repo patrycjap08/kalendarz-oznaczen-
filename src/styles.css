@@ -45,7 +45,7 @@ small, .hint { color: var(--muted, #56645a); font-size: 12px; line-height: 1.5; 
 .month-controls > div { display: flex; gap: 6px; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; padding: 0; font-size: 25px; }
 .weekday-row { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); text-align: center; font-size: 10px; color: var(--muted); margin: 0 0 10px; height: 20px; align-items: center; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-template-rows: repeat(6,minmax(72px,1fr)); height: max(432px, calc(100dvh - 290px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); gap: 1px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--line); }
+.calendar-grid { --grid-gap: 1px; --grid-border: 1px; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-template-rows: repeat(var(--week-count),minmax(72px,1fr)); height: max(calc(var(--week-count) * 72px + (var(--week-count) - 1) * var(--grid-gap) + 2 * var(--grid-border)), var(--calendar-available-height, calc(100dvh - 312px - env(safe-area-inset-top) - env(safe-area-inset-bottom)))); gap: var(--grid-gap); border: var(--grid-border) solid var(--line); border-radius: 12px; overflow: hidden; background: var(--line); }
 .day-cell { border: 0; padding: 0; border-radius: 0; position: relative; min-width: 0; min-height: 0; height: 100%; text-align: left; background: var(--surface); }
 .cell-inner { width: 100%; height: 100%; position: relative; overflow: hidden; }
 .day-number { position: absolute; top: 3px; left: 3px; z-index: 2; display: flex; justify-content: center; align-items: center; min-width: 23px; height: 23px; font-size: 14px; line-height: 1; font-variant-numeric: tabular-nums; border-radius: 7px; color: var(--text); }
@@ -54,19 +54,19 @@ small, .hint { color: var(--muted, #56645a); font-size: 12px; line-height: 1.5; 
 .day-number.today { outline: 1.5px solid var(--accent); outline-offset: -1px; background: var(--badge); font-weight: 700; }
 .marker-horizontal .day-number, .marker-vertical .day-number { background: var(--badge); opacity: 1; }
 .outside .marker-horizontal .day-number, .outside .marker-vertical .day-number { color: var(--muted); }
-.dot-area { position: absolute; top: 26px; bottom: 4px; left: 4px; right: 4px; display: flex; justify-content: center; align-items: center; }
-.dot-rows { display: flex; flex-direction: column; gap: 2px; }
-.dot-row { display: flex; gap: 2px; justify-content: center; }
-.marker-dot { display: flex; align-items: center; justify-content: center; border: 1px solid #0002; box-shadow: 0 0 0 .5px #fff6; border-radius: 50%; line-height: 1; flex-shrink: 0; }
+.dot-area { position: absolute; inset: 0; pointer-events: none; }
+.marker-dot { position: absolute; transform: translate(-50%,-50%); display: flex; align-items: center; justify-content: center; border: 1px solid #0002; box-shadow: 0 0 0 .5px #fff6; border-radius: 50%; line-height: 1; }
 .stripes { position: absolute; inset: 0; display: grid; }
 .stripe-emoji { position: absolute; transform: translate(-50%,-50%); line-height: 1; z-index: 1; }
 .overflow-count { position: absolute; bottom: 2px; right: 2px; background: var(--badge); color: var(--text); border: 1px solid var(--line); font-size: 9px; line-height: 14px; min-width: 19px; border-radius: 5px; text-align: center; z-index: 3; }
 .calendar-hint { text-align: center; font-size: 11px; color: var(--muted); margin: 14px 0 0; }
 .style-soft { gap: 5px; background: transparent; border: 0; overflow: visible; font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif; }
 .style-soft .day-cell { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.calendar-grid.style-soft { --grid-gap: 5px; --grid-border: 0px; }
 .style-editorial .day-number { font-family: Georgia, serif; }
 .style-mono .day-number { font-family: ui-monospace, monospace; }
 .style-mono { border-radius: 2px; gap: 2px; }
+.calendar-grid.style-mono { --grid-gap: 2px; }
 .bottom-nav { position: fixed; z-index: 5; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 850px; display: flex; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--nav); border-top: 1px solid var(--line); }
 .bottom-nav button { flex: 1; display: flex; align-items: center; flex-direction: column; gap: 5px; border: 0; background: transparent; color: var(--muted); font-size: 10px; padding: 4px; }
 .bottom-nav button[aria-current] { color: var(--accent); font-weight: 650; }
@@ -113,9 +113,8 @@ small, .hint { color: var(--muted, #56645a); font-size: 12px; line-height: 1.5; 
 .settings-preview { position: sticky; top: env(safe-area-inset-top); z-index: 3; padding: 10px; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 24px; color: var(--text); }
 .preview-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin-bottom: 8px; }
 .preview-heading small { font-size: 9px; }
-.preview-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-template-rows: repeat(6,38px); gap: 1px; border: 1px solid var(--line); background: var(--line); border-radius: 6px; overflow: hidden; }
+.preview-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-template-rows: repeat(var(--week-count),38px); gap: 1px; border: 1px solid var(--line); background: var(--line); border-radius: 6px; overflow: hidden; }
 .preview-grid .day-number { font-size: 10px; height: 19px; min-width: 19px; }
-.preview-grid .dot-area { top: 23px; }
 .settings-section { border-top: 1px solid var(--line); padding: 24px 0; }
 .settings-section h2 { margin-bottom: 4px; }
 .settings-section p { font-size: 13px; }

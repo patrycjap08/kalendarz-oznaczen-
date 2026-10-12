@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useApp } from '../../app/context';
 import { Confirm, Dialog } from '../../components/Dialog';
 import { DayCell } from '../../components/markers/DayCell';
@@ -30,6 +30,7 @@ export function Settings() {
   const [modal, setModal] = useState<'reset' | 'password' | 'delete' | 'logout'>(), [currentPassword, setCurrentPassword] = useState(''), [newPassword, setNewPassword] = useState(''), [confirmation, setConfirmation] = useState('');
   const [imported, setImported] = useState<Backup>(), [emergency, setEmergency] = useState<{ snapshot: Snapshot; operations: Operation[]; failures: Map<string, string> }>();
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft);
+  const previewFields = monthDays(2026, 9);
   useEffect(() => { setDirty(dirty); return () => setDirty(false); }, [dirty, setDirty]);
   useEffect(() => { const stop = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); }; window.addEventListener('beforeunload', stop); return () => window.removeEventListener('beforeunload', stop); }, [dirty]);
   const change = (key: keyof Preferences, value: string | boolean) => setDraft({ ...draft, [key]: value });
@@ -60,7 +61,7 @@ export function Settings() {
     else { setImported(validateBackup(exportBackup(result.snapshot))); setEmergency(undefined); }
   };
   return <section className="page settings-page"><header className="page-header"><p className="eyebrow">PO TWOJEMU</p><h1>Ustawienia</h1><p>Twój kalendarz, Twój styl.</p></header>
-    <div className={`settings-preview bg-${draft.background} theme-${draft.theme_mode}`}><div className="preview-heading"><strong>Podgląd · październik 2026</strong><small>Dane przykładowe</small></div><div className={`preview-grid style-${draft.calendar_style}`}>{monthDays(2026, 9).map((day, i) => <DayCell preview key={day} day={day} today={day === '2026-10-12'} outside={!day.startsWith('2026-10')} preferences={draft} labels={examples.slice(0, ({ 4: 1, 9: 2, 13: 4, 18: 6, 24: 9 } as Record<number, number>)[i] || 0)} />)}</div></div>
+    <div className={`settings-preview bg-${draft.background} theme-${draft.theme_mode}`}><div className="preview-heading"><strong>Podgląd · październik 2026</strong><small>Dane przykładowe</small></div><div className={`preview-grid style-${draft.calendar_style}`} style={{ '--week-count': previewFields.length / 7 } as CSSProperties}>{previewFields.map((day, i) => <DayCell preview key={day} day={day} today={day === '2026-10-12'} outside={!day.startsWith('2026-10')} preferences={draft} labels={examples.slice(0, ({ 4: 1, 9: 2, 13: 4, 18: 6, 24: 9 } as Record<number, number>)[i] || 0)} />)}</div></div>
     <div className="settings-section stack"><h2>Wygląd</h2><Select field="background" title="Tło" value={draft.background} change={v => change('background', v)} /><Select field="calendar_style" title="Styl kalendarza" value={draft.calendar_style} change={v => change('calendar_style', v)} /><Select field="theme_mode" title="Tryb jasności" value={draft.theme_mode} change={v => change('theme_mode', v)} /><Select field="marker_mode" title="Sposób wyświetlania" value={draft.marker_mode} change={v => change('marker_mode', v)} />
       <label className="check"><input type="checkbox" checked={draft.show_emoji} onChange={e => change('show_emoji', e.target.checked)} />Pokaż emotki</label>
       {draft.marker_mode === 'dots' && <Select field="dot_size" title="Rozmiar kropek" value={draft.dot_size} change={v => change('dot_size', v)} />}

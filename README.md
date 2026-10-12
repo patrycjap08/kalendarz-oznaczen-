@@ -2,7 +2,7 @@
 
 Prywatny kalendarz oznaczeń po polsku, jako strona i PWA na iPhone’a. React, TypeScript, Vite, Supabase i GitHub Pages.
 
-Implementacja obejmuje miesiąc z 42 polami, wiele oznaczeń w dniu, oznaczenia jednorazowe i wielokrotne, edycję globalną, archiwum, motywy, kropki/pasy, IndexedDB, kolejkę synchronizacji, konflikty, eksport/import JSON i Auth z nazwą użytkownika.
+Implementacja obejmuje miesiąc z 4–6 wierszami (28–42 pola), wiele oznaczeń w dniu, oznaczenia jednorazowe i wielokrotne, edycję globalną, archiwum, motywy, kropki/pasy, IndexedDB, kolejkę synchronizacji, konflikty, eksport/import JSON i Auth z nazwą użytkownika.
 
 Nie jest jeszcze odebraną produkcyjnie aplikacją: wdrożenie Supabase, SMTP, kopie i testy fizycznego iPhone’a wymagają konfiguracji i weryfikacji.
 

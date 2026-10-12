@@ -36,12 +36,28 @@ async function mockAccount(page: Page, entries = 9) {
   await expect(page.getByText('Zapisano · zsynchronizowano', { exact: true })).toBeVisible();
   return { snapshot: () => snapshot };
 }
-test('logowanie, 42 pola, wszystkie wpisy dnia i overflow', async ({ page }) => {
+test('logowanie, pięć tygodni października, wszystkie wpisy dnia i overflow', async ({ page }) => {
   await mockAccount(page);
-  await expect(page.locator('.calendar-grid .day-cell')).toHaveCount(42);
+  await expect(page.locator('.calendar-grid .day-cell')).toHaveCount(35);
   const day = page.getByRole('button', { name: /12 października 2026,/ });
   await expect(day.locator('.marker-dot')).toHaveCount(6); await expect(day.getByText('+3', { exact: true })).toBeVisible();
+  const number = await day.locator('.day-number').boundingBox(), firstDot = await day.locator('.marker-dot').first().boundingBox();
+  expect(Math.abs(firstDot!.y + firstDot!.height / 2 - number!.y - number!.height / 2)).toBeLessThan(1);
+  expect(firstDot!.x).toBeGreaterThanOrEqual(number!.x + number!.width);
+  const grid = await page.locator('.calendar-grid').boundingBox(), nav = await page.locator('.bottom-nav').boundingBox();
+  expect(grid!.y + grid!.height).toBeLessThanOrEqual(nav!.y);
+  await page.screenshot({ path: 'test-results/calendar-month.png' });
   await day.click(); await expect(page.getByRole('dialog')).toBeVisible(); await expect(page.getByRole('button', { name: /^Usuń .* z dnia$/ })).toHaveCount(9);
+});
+test('miesiące mają cztery, pięć lub sześć rzeczywistych wierszy', async ({ page }) => {
+  await mockAccount(page, 0);
+  const cells = page.locator('.calendar-grid .day-cell');
+  await expect(cells).toHaveCount(35);
+  await page.getByRole('button', { name: 'Następny miesiąc', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'listopad 2026', exact: true })).toBeVisible(); await expect(cells).toHaveCount(42);
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Następny miesiąc', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'luty 2027', exact: true })).toBeVisible(); await expect(cells).toHaveCount(28);
+  expect(await cells.evaluateAll(elements => new Set(elements.map(element => element.getBoundingClientRect().top)).size)).toBe(4);
 });
 test('nowe jednorazowe oznaczenie oraz usunięcie z dnia', async ({ page }) => {
   await mockAccount(page, 0);

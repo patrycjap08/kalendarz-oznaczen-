@@ -15,3 +15,9 @@
 - Indeks po dacie powstaje raz po zmianie stanu, a komórki nie filtrują całej historii. Pełny snapshot pobierany jest przy inicjalizacji, zmianie revision lub konflikcie, nie przy otwarciu dnia.
 
 Znane zakresy wymagające odbioru: prawdziwy iPhone/VoiceOver, wszystkie motywy, callbacki z produkcyjnej poczty, monitoring i kopie poza repozytorium. Wyników tych testów nie zastępują testy z atrapą API.
+
+## Zmiana układu potwierdzona przez właścicielkę — 12 października 2026
+
+Miesiąc pokazuje wyłącznie zajmowane tygodnie: 4, 5 albo 6 wierszy, czyli 28, 35 albo 42 pola. Początek tygodnia pozostaje w poniedziałek, a komórki sąsiednich miesięcy uzupełniają tylko pierwszy i ostatni tydzień. Ta decyzja zastępuje wymaganie sześciu stałych wierszy ze specyfikacji 1.0.
+
+Kropki wykorzystują pełną powierzchnię komórki. Pierwsza może znajdować się obok numeru dnia, na tej samej wysokości; kolejne układają się parami niżej. Geometria uwzględnia rzeczywisty rozmiar plakietki numeru, granice pola oraz licznik +N. Nie rezerwuje pustego pasa przez całą szerokość nad oznaczeniami. Wspólny renderer stosuje ten układ również w podglądzie ustawień.

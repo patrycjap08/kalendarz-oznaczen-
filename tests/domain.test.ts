@@ -9,9 +9,10 @@ const op = (type: Operation['type'], payload: Payload): Operation => ({ id: cryp
 const labelId = crypto.randomUUID(), assignment = crypto.randomUUID();
 const definition = { label_id: labelId, name: 'Trening', emoji: '🏋️', color: '#8AAE92' };
 describe('daty i normalizacja', () => {
-  it('zawsze rysuje 42 dni od poniedziałku i uwzględnia luty przestępny', () => {
-    const days = monthDays(2028, 1); expect(days).toHaveLength(42); expect(days[0]).toBe('2028-01-31'); expect(days).toContain('2028-02-29');
+  it('rysuje tylko tygodnie zajmowane przez miesiąc i uwzględnia luty przestępny', () => {
+    const days = monthDays(2028, 1); expect(days).toHaveLength(35); expect(days[0]).toBe('2028-01-31'); expect(days).toContain('2028-02-29'); expect(days.at(-1)).toBe('2028-03-05');
   });
+  it('obsługuje miesiące z czterema, pięcioma i sześcioma tygodniami', () => { expect(monthDays(2021, 1)).toHaveLength(28); expect(monthDays(2021, 2)).toHaveLength(35); expect(monthDays(2020, 7)).toHaveLength(42); expect(monthDays(2021, 1)[0]).toBe('2021-02-01'); expect(monthDays(2021, 1).at(-1)).toBe('2021-02-28'); });
   it('odrzuca nieistniejące daty i granice', () => { expect(validDay('2026-02-29')).toBe(false); expect(validDay('1899-12-31')).toBe(false); expect(validDay('2101-01-01')).toBe(false); expect(validDay('2026-10-12')).toBe(true); });
   it('wyszukiwanie usuwa diakrytykę, unikalność zachowuje ją', () => { expect(searchKey(' ŁÓDŹ ')).toBe('lodz'); expect(nameKey(' Trening ')).toBe('trening'); expect(nameKey('Łódź')).not.toBe(nameKey('Lodz')); });
   it('hasła i nazwy mają osobne zasady, a emoji obsługuje ZWJ i karnację', () => {
@@ -55,7 +56,11 @@ describe('operacje domenowe', () => {
   });
 });
 describe('geometria oznaczeń', () => {
-  it('sześć emoji mieści się w komórce iPhone’a, a overflow nie zwiększa wysokości', () => { const layout = dotLayout(9, 42, 52, true, 'auto'); expect(layout.visible).toBe(6); expect(layout.diameter).toBeGreaterThanOrEqual(12); });
+  it('sześć emoji mieści się w całej komórce iPhone’a, razem z numerem i overflow', () => { for (const [width, height] of [[40, 72], [50, 110]]) { const layout = dotLayout(9, width, height, true, 'auto'); expect(layout.visible).toBe(6); expect(layout.diameter).toBeGreaterThanOrEqual(12); expect(layout.points[0].y).toBeLessThan(26); } });
+  it('wykorzystuje miejsce obok daty i nie wychodzi poza komórkę', () => {
+    const layout = dotLayout(6, 50, 110, true, 'auto'); expect(layout.points[0].y).toBe(14.5); expect(layout.points[0].x - layout.diameter / 2).toBeGreaterThanOrEqual(26);
+    for (const point of layout.points) { const radius = layout.diameter / 2; expect(point.x - radius).toBeGreaterThanOrEqual(0); expect(point.x + radius).toBeLessThanOrEqual(50); expect(point.y - radius).toBeGreaterThanOrEqual(0); expect(point.y + radius).toBeLessThanOrEqual(110); }
+  });
   it('zmniejsza widoczną liczbę, gdy miejsca jest za mało', () => { expect(dotLayout(6, 24, 20, true, 'auto').visible).toBeLessThan(6); });
   it('sześć wąskich pasów zachowuje kolory bez nieczytelnych emoji', () => { expect(stripeEmoji(0, 6, 44, 85, 'vertical', 'top', false)).toBeUndefined(); });
   it('emoji nie zachodzi na numer dnia ani licznik', () => { const result = stripeEmoji(0, 2, 50, 85, 'horizontal', 'left', true); expect(result).toBeDefined(); const { x, y, font } = result!; const half = font / 2 + 1; expect(x - half >= 28 || y - half >= 26).toBe(true); });
