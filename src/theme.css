@@ -1,0 +1,20 @@
+.app, .settings-preview { --text: #202421; --muted: #56645a; --surface: #ffffff; --badge: #f8faf7; --line: #d5dcd4; --accent: #496951; --on-accent: #ffffff; --tint: #e8eee7; --nav: #fdfefb; --danger: #a02b3b; --error-bg: #fff0f0; color: var(--text); }
+.bg-plain { background: #f7f7f5; }
+.bg-warm { background: #f3eee6; }
+.bg-mist { background: linear-gradient(135deg,#f4f6f8,#e7edf2); }
+.bg-sage { background: #edf2ed; }
+.bg-dots { background-color: #f7f7f5; background-image: radial-gradient(#4a624514 .7px,transparent .7px); background-size: 16px 16px; }
+.theme-dark { --text: #f3f4f2; --muted: #b0bdb1; --surface: #222825; --badge: #252d27; --line: #4a574e; --accent: #bdd4c0; --on-accent: #17221a; --tint: #303e34; --nav: #1b221e; --danger: #ffb2bc; --error-bg: #38262b; }
+.theme-dark.bg-plain { background: #141618; }
+.theme-dark.bg-warm { background: #201c19; }
+.theme-dark.bg-mist { background: linear-gradient(135deg,#151b22,#202833); }
+.theme-dark.bg-sage { background: #18221c; }
+.theme-dark.bg-dots { background-color: #141618; background-image: radial-gradient(#e0eee014 .7px,transparent .7px); }
+@media(prefers-color-scheme: dark) {
+  .theme-system { --text: #f3f4f2; --muted: #b0bdb1; --surface: #222825; --badge: #252d27; --line: #4a574e; --accent: #bdd4c0; --on-accent: #17221a; --tint: #303e34; --nav: #1b221e; --danger: #ffb2bc; --error-bg: #38262b; }
+  .theme-system.bg-plain { background: #141618; }
+  .theme-system.bg-warm { background: #201c19; }
+  .theme-system.bg-mist { background: linear-gradient(135deg,#151b22,#202833); }
+  .theme-system.bg-sage { background: #18221c; }
+  .theme-system.bg-dots { background-color: #141618; background-image: radial-gradient(#e0eee014 .7px,transparent .7px); }
+}

@@ -1,0 +1,40 @@
+name: Kontrolowane wdrożenie Supabase
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: supabase-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: supabase-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate deployment
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_DB_PASSWORD"
+          test -n "$AUTH_RATE_LIMIT_SALT"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          AUTH_RATE_LIMIT_SALT: ${{ secrets.AUTH_RATE_LIMIT_SALT }}
+      - name: Migrate database and deploy functions
+        run: |
+          npx --yes supabase@2.120.0 link --project-ref pmdkppkgnihscupgthxh
+          npx --yes supabase@2.120.0 db push
+          npx --yes supabase@2.120.0 secrets set APP_URL=https://patrycjap08.github.io/kalendarz-oznaczen-/index.html ALLOWED_ORIGINS=https://patrycjap08.github.io AUTH_RATE_LIMIT_SALT="$AUTH_RATE_LIMIT_SALT"
+          npx --yes supabase@2.120.0 functions deploy register
+          npx --yes supabase@2.120.0 functions deploy login
+          npx --yes supabase@2.120.0 functions deploy recover-password
+          npx --yes supabase@2.120.0 functions deploy delete-account
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          AUTH_RATE_LIMIT_SALT: ${{ secrets.AUTH_RATE_LIMIT_SALT }}

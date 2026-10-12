@@ -147,3 +147,14 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+# Local application data and test artifacts
+.env
+.env.local
+.env.*.local
+supabase/functions/.env
+dist/
+test-results/
+playwright-report/
+backups/
+*.dump
+*.age

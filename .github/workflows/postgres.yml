@@ -1,0 +1,30 @@
+name: PostgreSQL RLS i równoległość
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: isolated-test-only
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          psql -v ON_ERROR_STOP=1 -f tests/sql/bootstrap.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202610120001_schema.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202610120002_emoji.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/acceptance.sql
+          bash scripts/test-concurrency.sh
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: isolated-test-only
+          PGDATABASE: postgres
