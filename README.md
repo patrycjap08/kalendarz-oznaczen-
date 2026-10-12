@@ -6,11 +6,11 @@ Implementacja obejmuje miesiąc z 42 polami, wiele oznaczeń w dniu, oznaczenia 
 
 Nie jest jeszcze odebraną produkcyjnie aplikacją: wdrożenie Supabase, SMTP, kopie i testy fizycznego iPhone’a wymagają konfiguracji i weryfikacji.
 
-```sh
-npm ci
-cp .env.example .env.local
-npm run dev
-```
+## Konfiguracja przez przeglądarkę
+
+Właścicielka nie musi instalować Node ani uruchamiać poleceń npm. Publiczna konfiguracja Twojego Supabase jest już wpisana w projekcie. Otwórz instrukcję wdrożenia poniżej i zacznij od punktu 2 — zapisania chronionych ustawień w GitHubie.
+
+Polecenia dla programisty przeniesiono do dodatku technicznego na końcu instrukcji wdrożenia.
 
 - [Instrukcja wdrożenia krok po kroku](docs/WDROZENIE.md)
 - [Architektura i decyzje](docs/ARCHITEKTURA.md)
