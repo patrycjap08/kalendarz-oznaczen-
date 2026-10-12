@@ -5,7 +5,7 @@ Wersja 0.1.0, 12 października 2026. Jest to pierwsza implementacja, nie zakońc
 ## Sprawdzone lokalnie
 
 - TypeScript, ESLint i produkcyjny build PWA.
-- 19 testów Vitest: daty, Unicode, emoji, operacje, archiwizacja, historia, kopie, geometria i IndexedDB.
+- 26 testów Vitest: daty, Unicode, emoji, operacje, archiwizacja, historia, kopie, geometria i IndexedDB.
 - Wbudowany PostgreSQL/PGlite: atomowe tworzenie profilu, unikalna nazwa konta, RLS dwóch kont, odmowa anonimowego dostępu i bezpośrednich zapisów, idempotencja, konflikty revision, rollback, archiwizacja, kaskada usuwania i odmowa starego tokena po usunięciu konta.
 - Testy Playwright na Chromium z atrapą API: miesiące z 4–6 tygodniami, kropki obok daty i overflow, formularz jednorazowy/usunięcie, roboczy wygląd/pasy, offline/ponowne otwarcie i brak prywatnego API w Cache Storage. Test 320 px ujawnił ograniczenie miejsca na sześć emoji przy wysokości komórki 64 px; minimalną wysokość zwiększono do 72 px, z dopuszczonym przewijaniem na małych ekranach.
 - Audyt zależności produkcyjnych: brak zgłoszonych podatności.
@@ -31,3 +31,7 @@ Aktualizacja układu: liczba wierszy jest zgodna z liczbą tygodni zajmowanych p
 ## Odbiór rozszerzenia: wiele kalendarzy
 
 Dodano testy migracji istniejącej historii i starej idempotencji, aktualizacji IndexedDB bez utraty kolejki, rozdzielenia oznaczeń i dat między kalendarzami, RLS między kontami oraz importu z mapowaniem kalendarzy. Testy przeglądarkowe obejmują tworzenie, przełączanie, zmianę nazwy, własne listy oznaczeń, eksport pełnego konta i ponowne otwarcie nowego kalendarza offline.
+
+Wynik kontroli rozszerzenia: TypeScript, ESLint, 26 testów Vitest/PGlite i 9 scenariuszy Playwright przeszły lokalnie. Testy przeglądarkowe używają atrapy API; kontrola migracji produkcyjnej odbywa się oddzielnie podczas wdrożenia.
+
+Wdrożenie rozszerzenia: GitHub Actions 38253846307 zakończył testy, migrację Supabase i publikację Pages powodzeniem. Oddzielny workflow 38253846097 potwierdził testy SQL/RLS i równoległych żądań na PostgreSQL.
